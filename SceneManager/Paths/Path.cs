@@ -29,6 +29,7 @@ namespace SceneManager.Paths
         [XmlArrayItem("Barrier")]
         public List<Barrier> Barriers { get; set; } = new List<Barrier>();
         internal List<CollectedPed> CollectedPeds { get; } = new List<CollectedPed>();
+        internal List<CollectedVehicle> CollectedVehicles { get; } = new List<CollectedVehicle>();
         internal List<Vehicle> BlacklistedVehicles { get; } = new List<Vehicle>();
 
         internal Path()
@@ -204,40 +205,29 @@ namespace SceneManager.Paths
             }, "3D Waypoint Line Drawing Fiber");
         }
 
-        //internal void LoopForVehiclesToBeDismissed()
-        //{
-        //    while (PathManager.Paths.Contains(this))
-        //    {
-        //        foreach (CollectedPed cp in CollectedPeds.Where(x => x && x.CurrentVehicle && (!x.CurrentVehicle.IsDriveable || x.CurrentVehicle.IsUpsideDown || !x.CurrentVehicle.HasDriver)))
-        //        {
-        //            if (cp.CurrentVehicle.HasDriver)
-        //            {
-        //                cp.CurrentVehicle.Driver.Dismiss();
-        //            }
-        //            cp.CurrentVehicle.Dismiss();
-        //        }
-
-        //        CollectedPeds.RemoveAll(cp => !cp || !cp.CurrentVehicle);
-        //        BlacklistedVehicles.RemoveAll(v => !v);
-        //        GameFiber.Sleep(60000);
-        //    }
-        //}
-
         internal void CleanupInvalidPedsAndVehicles()
         {
             var pedsToDismiss = CollectedPeds.Where(x => x && x.CurrentVehicle && (!x.CurrentVehicle.IsDriveable || x.CurrentVehicle.IsUpsideDown || !x.CurrentVehicle.HasDriver)).ToList();
             foreach (CollectedPed cp in pedsToDismiss)
             {
-                //if (cp.CurrentVehicle.HasDriver)
-                //{
-                //    cp.CurrentVehicle.Driver.Dismiss();
-                //}
-                //cp.CurrentVehicle.Dismiss();
+                cp.CurrentVehicle.Dismiss();
                 cp.Dismiss();
             }
 
             CollectedPeds.RemoveAll(cp => !cp || !cp.CurrentVehicle);
             BlacklistedVehicles.RemoveAll(v => !v);
+
+            // Addition: collected vehicles without drivers
+            //Game.LogTrivial("[DEBUG] Vehicle clean-up.");
+            foreach(CollectedVehicle veh in CollectedVehicles)
+            {
+                if (veh.OptionalCleanUp())
+                {
+                    Game.LogTrivial("[DEBUG] Cleaned up a vehicle");
+                    // Unsure if this is normal code but whatevs
+                    BlacklistedVehicles.RemoveAll(v => v.Handle == veh.Handle);
+                }
+            }
         }
 
         internal void LoopWaypointCollection()
@@ -290,7 +280,11 @@ namespace SceneManager.Paths
                                 lastProcessTime = Game.GameTime;
                                 continue;
                             }
-                            CollectedPeds.Add(new CollectedPed(vehicle.Driver, this, waypoint));
+                            CollectedPed p = new CollectedPed(vehicle.Driver, this, waypoint);
+                            CollectedVehicle v = new CollectedVehicle(vehicle, p);
+                            p.InitialVehicle = v;
+                            CollectedVehicles.Add(v);
+                            CollectedPeds.Add(p);
                         }
 
                         checksDone++; // Increment the counter inside the vehicle loop
@@ -312,6 +306,17 @@ namespace SceneManager.Paths
             }
         }
 
+        // Remove the ped from the CollectedPeds and its Vehicle from CollectedVehicle arrays
+        // Not sure what we need this for but it's basically removing the Ped from arrays
+        // Then, removing the Vehicle and cleaning the vehicle up.
+        // last arg (for clarity): Collected Ped's InitialVehicle
+        internal void DismissPed(Predicate<CollectedVehicle> vehMatch, CollectedPed collectedPed, CollectedVehicle collectedPedsInitialVehicle)
+        {
+            CollectedVehicles.RemoveAll(vehMatch);
+            CollectedPeds.Remove(collectedPed);
+            if (collectedPedsInitialVehicle) collectedPedsInitialVehicle.OptionalCleanUp();
+        }
+
         internal void Delete()
         {
             var pathIndex = Array.IndexOf(PathManager.Paths, this);
@@ -329,7 +334,8 @@ namespace SceneManager.Paths
             foreach (CollectedPed collectedPed in collectedPedsCopy.Where(x => x != null && x && x.CurrentVehicle))
             {
                 collectedPed.Dismiss();
-                CollectedPeds.Remove(collectedPed);
+                //CollectedPeds.Remove(collectedPed);
+                collectedPed.RemovePedAndVehicleFromPath();
             }
         }
 

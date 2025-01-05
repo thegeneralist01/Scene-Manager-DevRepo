@@ -63,6 +63,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="API\Functions.cs" />
+    <Compile Include="CollectedVehicles\CollectedVehicle.cs" />
     <Compile Include="Menus\DriverMenu.cs" />
     <Compile Include="Menus\ExportPathMenu.cs" />
     <Compile Include="Menus\ImportPathMenu.cs" />

@@ -16,6 +16,7 @@ namespace SceneManager.CollectedPeds
         internal bool Directed { get; set; } = false;
         internal bool SkipWaypoint { get; private set; } = false;
         internal bool ReadyForDirectTasks { get; private set; } = true;
+        internal CollectedVehicle InitialVehicle { get; set; } = null;
 
         internal CollectedPed(Ped basePed, Path path, Waypoint waypoint) : base(basePed.Handle) 
         {
@@ -286,12 +287,23 @@ namespace SceneManager.CollectedPeds
             return true;
         }
 
+        public void RemovePedAndVehicleFromPath()
+        {
+            if (InitialVehicle != null)
+            {
+                Game.LogTrivial("We have the initial vehicle");
+            }
+            Path.DismissPed(v => !v
+            || (v && v.BoundPed.Handle == this.Handle)
+            || (v && v.Handle == InitialVehicle.Handle), this, InitialVehicle);
+        }
+
         internal void Dismiss(Dismiss dismissOption = Utils.Dismiss.FromPath, Path newPath = null)
         {
             if(!this)
             {
                 Game.LogTrivial($"CollectedPed is not valid in Dismiss.");
-                Path.CollectedPeds.Remove(this);
+                RemovePedAndVehicleFromPath();
                 return;
             }
             if(Dismissed)
@@ -346,14 +358,16 @@ namespace SceneManager.CollectedPeds
                 }
                 if(!this)
                 {
-                    Path.CollectedPeds.Remove(this);
+                    Path.CollectedVehicles.RemoveAll(v => !v || (v && v.BoundPed == this));
+                    RemovePedAndVehicleFromPath();
                     return;
                 }
                 if (CurrentVehicle)
                 {
                     CurrentVehicle.Delete();
                 }
-                Path.CollectedPeds.Remove(this);
+                Path.CollectedVehicles.RemoveAll(v => !v || (v && v.BoundPed == this));
+                RemovePedAndVehicleFromPath();
             }
 
             void DismissFromWaypoint()
@@ -386,7 +400,8 @@ namespace SceneManager.CollectedPeds
                 if(!this)
                 {
                     Game.LogTrivial($"CollectedPed is not valid in DismissFromPath.");
-                    Path.CollectedPeds.Remove(this);
+                    Path.CollectedVehicles.RemoveAll(v => !v || (v && v.BoundPed == this));
+                    RemovePedAndVehicleFromPath();
                     return;
                 }
 
@@ -435,7 +450,7 @@ namespace SceneManager.CollectedPeds
                             LastVehicle.IsSirenSilent = true;
                         }
                     }
-                    Path.CollectedPeds.Remove(this);
+                    RemovePedAndVehicleFromPath();
                 }
                 //}, "DismissFromPath Fiber");         
             }
@@ -447,7 +462,8 @@ namespace SceneManager.CollectedPeds
                 if (newPath != null)
                 {
                     newPath.CollectedPeds.Add(this);
-                    Path.CollectedPeds.Remove(this);
+                    Path.CollectedVehicles.RemoveAll(v => !v || (v && v.BoundPed == this));
+                    RemovePedAndVehicleFromPath();
                 }
                 Tasks.Clear();
             }

@@ -30,7 +30,9 @@ namespace SceneManager
             Settings.LoadSettings();
             GetAssemblyVersion();
             MenuManager.InitializeMenus();
+            Game.LogTrivial("[DEBUG] After initializing menus.");
             Hints.DisplayHintsToOpenMenu();
+            Game.LogTrivial("[DEBUG] After displaying hints to open the menu.");
 
             GameFiber.StartNew(() => UserInput.HandleKeyPress(), "Handle User Input");
 
